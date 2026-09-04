@@ -306,7 +306,7 @@ fun FormatItem(
 
         val titleText =
             if (audioTrackNote != null) {
-                connectWithBlank(format ?: formatId, "($audioTrackNote)")
+                connectWithBlank((format ?: formatId).orEmpty(), "($audioTrackNote)")
             } else {
                 format.toString()
             }
