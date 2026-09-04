@@ -3,7 +3,9 @@ package com.junkfood.seal.ui.page.settings.format
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SettingsSuggest
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.VideoFile
 import androidx.compose.material.icons.outlined.VideoSettings
 import androidx.compose.material3.AssistChipDefaults
@@ -34,6 +37,7 @@ import androidx.compose.material3.ElevatedAssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
@@ -56,6 +60,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.junkfood.seal.R
@@ -90,6 +95,7 @@ import com.junkfood.seal.util.M4A
 import com.junkfood.seal.util.NOT_CONVERT
 import com.junkfood.seal.util.NOT_SPECIFIED
 import com.junkfood.seal.util.OPUS
+import com.junkfood.seal.util.PREFERRED_AUDIO_LANGUAGE
 import com.junkfood.seal.util.PreferenceStrings
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.PreferenceUtil.updateBoolean
@@ -977,6 +983,107 @@ fun VideoResolutionChip(
                 contentDescription = null,
                 modifier = Modifier.size(AssistChipDefaults.IconSize),
             )
+        },
+    )
+}
+
+@Composable
+fun AudioLanguageDialog(onDismissRequest: () -> Unit) {
+    val currentCode by PREFERRED_AUDIO_LANGUAGE.stringState
+    var code by remember(currentCode) { mutableStateOf(currentCode) }
+
+    val quickLanguages = remember {
+        listOf(
+            "en" to R.string.audio_lang_english,
+            "de" to R.string.audio_lang_german,
+            "fr" to R.string.audio_lang_french,
+            "ru" to R.string.audio_lang_russian,
+            "ar" to R.string.audio_lang_arabic,
+            "zh" to R.string.audio_lang_chinese,
+            "fa" to R.string.audio_lang_persian,
+        )
+    }
+
+    SealDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(stringResource(R.string.preferred_audio_language)) },
+        icon = { Icon(Icons.Outlined.Translate, null) },
+        text = {
+            Column(
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.audio_lang_dialog_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    value = code,
+                    onValueChange = { code = it },
+                    singleLine = true,
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType = KeyboardType.Ascii,
+                            imeAction = ImeAction.Done,
+                        ),
+                    label = { Text(stringResource(R.string.audio_lang_custom)) },
+                    placeholder = { Text(stringResource(R.string.audio_lang_custom_hint)) },
+                    supportingText = {
+                        Text(PreferenceStrings.getAudioLanguageLabel(code))
+                    },
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = code.equals("orig", ignoreCase = true),
+                        onClick = { code = "orig" },
+                        label = { Text(stringResource(R.string.audio_lang_original)) },
+                    )
+                    FilterChip(
+                        selected = code.equals("auto", ignoreCase = true),
+                        onClick = { code = "auto" },
+                        label = { Text(stringResource(R.string.audio_lang_system)) },
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    quickLanguages.forEach { (chipCode, labelRes) ->
+                        FilterChip(
+                            selected = code.equals(chipCode, ignoreCase = true),
+                            onClick = { code = chipCode },
+                            label = { Text(stringResource(labelRes)) },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            ConfirmButton {
+                val finalCode =
+                    code
+                        .trim()
+                        .lowercase()
+                        .filter { it.isLetter() || it == '-' }
+                        .take(10)
+                        .ifBlank { "orig" }
+                PREFERRED_AUDIO_LANGUAGE.updateString(finalCode)
+                onDismissRequest()
+            }
+        },
+        dismissButton = {
+            DismissButton {
+                onDismissRequest()
+            }
         },
     )
 }

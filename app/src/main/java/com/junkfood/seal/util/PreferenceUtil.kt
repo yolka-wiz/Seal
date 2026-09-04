@@ -109,6 +109,7 @@ const val USE_CUSTOM_AUDIO_PRESET = "custom_audio_preset"
 
 const val MERGE_MULTI_AUDIO_STREAM = "multi_audio_stream"
 const val PREFER_ORIGINAL_AUDIO = "prefer_original_audio"
+const val PREFERRED_AUDIO_LANGUAGE = "preferred_audio_language"
 
 const val DOWNLOAD_TYPE_INITIALIZATION = "download_type_init"
 private const val DOWNLOAD_TYPE = "download_type"
@@ -208,6 +209,7 @@ private val StringPreferenceDefaults =
         SUBTITLE_LANGUAGE to "en.*,.*-orig",
         OUTPUT_TEMPLATE to DownloadUtil.OUTPUT_TEMPLATE_ID,
         CUSTOM_OUTPUT_TEMPLATE to DownloadUtil.OUTPUT_TEMPLATE_ID,
+        PREFERRED_AUDIO_LANGUAGE to "orig",
     )
 
 private val BooleanPreferenceDefaults =
@@ -485,6 +487,26 @@ data class DarkThemePreference(
 }
 
 object PreferenceStrings {
+    private fun getString(resId: Int): String = context.getString(resId)
+
+    fun getAudioLanguageLabel(code: String): String =
+        when (code.lowercase()) {
+            "orig", "" -> getString(R.string.audio_lang_original)
+            "auto" -> getString(R.string.audio_lang_system)
+            "en" -> getString(R.string.audio_lang_english)
+            "de" -> getString(R.string.audio_lang_german)
+            "fr" -> getString(R.string.audio_lang_french)
+            "ru" -> getString(R.string.audio_lang_russian)
+            "ar" -> getString(R.string.audio_lang_arabic)
+            "zh" -> getString(R.string.audio_lang_chinese)
+            "fa" -> getString(R.string.audio_lang_persian)
+            else ->
+                runCatching {
+                    val locale = java.util.Locale.forLanguageTag(code)
+                    val display = locale.getDisplayLanguage(java.util.Locale.getDefault())
+                    if (display.isNotBlank()) "$display ($code)" else code
+                }.getOrDefault(code)
+        }
     fun getSubtitleConversionFormat(subtitleFormat: Int = CONVERT_SUBTITLE.getInt()): String =
         when (subtitleFormat) {
             CONVERT_LRC -> context.getString(R.string.convert_to, "lrc")

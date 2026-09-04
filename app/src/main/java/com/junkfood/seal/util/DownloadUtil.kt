@@ -240,6 +240,7 @@ object DownloadUtil {
         val mergeAudioStream: Boolean,
         val mergeToMkv: Boolean,
         val preferOriginalAudio: Boolean = false,
+        val preferredAudioLanguage: String = "orig",
     ) {
         companion object {
             val EMPTY =
@@ -296,6 +297,7 @@ object DownloadUtil {
                     mergeToMkv = false,
                     useCustomAudioPreset = false,
                     preferOriginalAudio = false,
+                    preferredAudioLanguage = "orig",
                 )
 
             fun createFromPreferences(): DownloadPreferences {
@@ -356,6 +358,7 @@ object DownloadUtil {
                     mergeToMkv =
                         (downloadSubtitle && embedSubtitle) || MERGE_OUTPUT_MKV.getBoolean(),
                     preferOriginalAudio = PREFER_ORIGINAL_AUDIO.getBoolean(),
+                    preferredAudioLanguage = PREFERRED_AUDIO_LANGUAGE.getString(),
                 )
             }
         }
@@ -547,24 +550,31 @@ object DownloadUtil {
         sorter: String,
     ) =
         preferences.run {
+            val audioLang = preferredAudioLanguage.lowercase().trim()
+            val langSortField =
+                when (audioLang) {
+                    "orig", "" -> "lang"
+                    "auto" -> {
+                        val sysLang = Locale.getDefault().language.lowercase()
+                        if (sysLang.isNotBlank()) "lang:$sysLang,lang" else "lang"
+                    }
+                    else -> "lang:$audioLang,lang"
+                }
+
             if (formatSorting && sortingFields.isNotEmpty()) {
                 val finalSorter =
-                    if (preferOriginalAudio && !sortingFields.contains("lang")) {
-                        connectWithDelimiter("lang", sortingFields, delimiter = ",")
+                    if (!sortingFields.contains("lang")) {
+                        connectWithDelimiter(langSortField, sortingFields, delimiter = ",")
                     } else {
                         sortingFields
                     }
                 addOption("-S", finalSorter)
             } else {
                 val finalSorter =
-                    if (preferOriginalAudio) {
-                        if (sorter.isNotEmpty()) {
-                            connectWithDelimiter("lang", sorter, delimiter = ",")
-                        } else {
-                            "lang"
-                        }
+                    if (sorter.isNotEmpty()) {
+                        connectWithDelimiter(langSortField, sorter, delimiter = ",")
                     } else {
-                        sorter
+                        langSortField
                     }
                 if (finalSorter.isNotEmpty()) addOption("-S", finalSorter)
             }
@@ -611,18 +621,19 @@ object DownloadUtil {
                     if (mergeAudioStream) {
                         addOption("--audio-multistreams")
                     }
-                } else if (convertAudio) {
-                    when (audioConvertFormat) {
-                        CONVERT_MP3 -> {
-                            addOption("--audio-format", "mp3")
-                        }
-
-                        CONVERT_M4A -> {
-                            addOption("--audio-format", "m4a")
-                        }
-                    }
                 } else {
                     applyFormatSorter(preferences, toAudioFormatSorter())
+                    if (convertAudio) {
+                        when (audioConvertFormat) {
+                            CONVERT_MP3 -> {
+                                addOption("--audio-format", "mp3")
+                            }
+
+                            CONVERT_M4A -> {
+                                addOption("--audio-format", "m4a")
+                            }
+                        }
+                    }
                 }
 
                 if (embedMetadata) {

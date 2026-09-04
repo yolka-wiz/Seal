@@ -47,6 +47,7 @@ import com.junkfood.seal.ui.component.PreferenceSwitchWithDivider
 import com.junkfood.seal.util.AUDIO_CONVERSION_FORMAT
 import com.junkfood.seal.util.AUDIO_CONVERT
 import com.junkfood.seal.util.CROP_ARTWORK
+import com.junkfood.seal.ui.common.stringState
 import com.junkfood.seal.util.CUSTOM_COMMAND
 import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.DownloadUtil.toFormatSorter
@@ -57,6 +58,7 @@ import com.junkfood.seal.util.FORMAT_SELECTION
 import com.junkfood.seal.util.FORMAT_SORTING
 import com.junkfood.seal.util.MERGE_MULTI_AUDIO_STREAM
 import com.junkfood.seal.util.MERGE_OUTPUT_MKV
+import com.junkfood.seal.util.PREFERRED_AUDIO_LANGUAGE
 import com.junkfood.seal.util.PREFER_ORIGINAL_AUDIO
 import com.junkfood.seal.util.PreferenceStrings
 import com.junkfood.seal.util.PreferenceUtil
@@ -111,6 +113,8 @@ fun DownloadFormatPreferences(onNavigateBack: () -> Unit, navigateToSubtitlePage
     var mergeAudioStream by MERGE_MULTI_AUDIO_STREAM.booleanState
     var showMergeAudioDialog by remember { mutableStateOf(false) }
     var preferOriginalAudio by PREFER_ORIGINAL_AUDIO.booleanState
+    var showAudioLanguageDialog by remember { mutableStateOf(false) }
+    val preferredAudioLanguage by PREFERRED_AUDIO_LANGUAGE.stringState
 
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -203,16 +207,12 @@ fun DownloadFormatPreferences(onNavigateBack: () -> Unit, navigateToSubtitlePage
                     }
                 }
                 item {
-                    PreferenceSwitch(
-                        title = stringResource(id = R.string.prefer_original_audio),
-                        description = stringResource(id = R.string.prefer_original_audio_desc),
+                    PreferenceItem(
+                        title = stringResource(id = R.string.preferred_audio_language),
+                        description = PreferenceStrings.getAudioLanguageLabel(preferredAudioLanguage),
                         icon = Icons.Outlined.Translate,
-                        isChecked = preferOriginalAudio,
                         enabled = !isCustomCommandEnabled,
-                        onClick = {
-                            preferOriginalAudio = !preferOriginalAudio
-                            PREFER_ORIGINAL_AUDIO.updateBoolean(preferOriginalAudio)
-                        },
+                        onClick = { showAudioLanguageDialog = true },
                     )
                 }
                 item { PreferenceSubtitle(text = stringResource(id = R.string.video)) }
@@ -434,5 +434,8 @@ fun DownloadFormatPreferences(onNavigateBack: () -> Unit, navigateToSubtitlePage
                 )
             },
         )
+    }
+    if (showAudioLanguageDialog) {
+        AudioLanguageDialog { showAudioLanguageDialog = false }
     }
 }
