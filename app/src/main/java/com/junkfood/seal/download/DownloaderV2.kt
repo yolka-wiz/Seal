@@ -24,6 +24,7 @@ import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.FileUtil
 import com.junkfood.seal.util.NotificationUtil
 import com.junkfood.seal.util.PreferenceUtil
+import com.junkfood.seal.util.ToastUtil
 import com.junkfood.seal.util.VideoInfo
 import com.yausername.youtubedl_android.YoutubeDL
 import java.io.File
@@ -219,6 +220,28 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
 
     override fun enqueue(task: Task) {
         DebugLogger.log(TAG, "enqueue: url=${task.url}, id=${task.id}")
+        if (!PreferenceUtil.isNetworkAvailableForDownload()) {
+            taskStateMap +=
+                task to
+                    Task.State(
+                        downloadState =
+                            DownloadState.Error(
+                                throwable =
+                                    IllegalStateException(
+                                        appContext.getString(
+                                            R.string.download_disabled_with_cellular
+                                        )
+                                    ),
+                                action = Task.RestartableAction.FetchInfo,
+                            ),
+                        videoInfo = null,
+                        viewState = Task.ViewState(url = task.url, title = task.url),
+                    )
+            ToastUtil.makeToastSuspend(
+                appContext.getString(R.string.download_disabled_with_cellular)
+            )
+            return
+        }
         taskStateMap +=
             task to Task.State(Idle, null, Task.ViewState(url = task.url, title = task.url))
     }
@@ -244,6 +267,12 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
 
     override fun restart(task: Task) {
         DebugLogger.log(TAG, "restart: id=${task.id}")
+        if (!PreferenceUtil.isNetworkAvailableForDownload()) {
+            ToastUtil.makeToastSuspend(
+                appContext.getString(R.string.download_disabled_with_cellular)
+            )
+            return
+        }
         task.restartImpl()
     }
 
@@ -280,6 +309,29 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
     /** Processes pending tasks, prioritizing downloads. */
     private fun doYourWork() {
         if (taskStateMap.countRunning() >= MAX_CONCURRENCY) return
+
+        if (!PreferenceUtil.isNetworkAvailableForDownload()) {
+            taskStateMap.entries
+                .filter { (_, state) ->
+                    state.downloadState == ReadyWithInfo || state.downloadState == Idle
+                }
+                .forEach { (task, state) ->
+                    val action =
+                        if (state.downloadState == ReadyWithInfo) Task.RestartableAction.Download
+                        else Task.RestartableAction.FetchInfo
+                    task.downloadState =
+                        DownloadState.Error(
+                            throwable =
+                                IllegalStateException(
+                                    appContext.getString(
+                                        R.string.download_disabled_with_cellular
+                                    )
+                                ),
+                            action = action,
+                        )
+                }
+            return
+        }
 
         taskStateMap.entries
             .sortedBy { (_, state) -> state.downloadState }
