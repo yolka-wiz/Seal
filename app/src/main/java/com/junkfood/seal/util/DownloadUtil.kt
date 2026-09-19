@@ -42,6 +42,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.io.File
 import java.util.Locale
 
 object DownloadUtil {
@@ -92,6 +93,7 @@ object DownloadUtil {
             ToastUtil.makeToastSuspend(context.getString(R.string.fetching_playlist_info))
             val request = YoutubeDLRequest(playlistURL)
             with(request) {
+                configureJsRuntime()
                 //            addOption("--compat-options", "no-youtube-unavailable-videos")
                 addOption("--flat-playlist")
                 addOption("--dump-single-json")
@@ -146,6 +148,7 @@ object DownloadUtil {
         with(preferences) {
             val request =
                 YoutubeDLRequest(url).apply {
+                    configureJsRuntime()
                     addOption("-o", BASENAME)
                     if (restrictFilenames) {
                         addOption("--restrict-filenames")
@@ -436,6 +439,26 @@ object DownloadUtil {
     fun getCookiesContentFromDatabase(): Result<String> =
         getCookieListFromDatabase().mapCatching { it.toCookiesFileContent() }
 
+    fun getBundledJsRuntime(): Pair<String, File>? {
+        val nativeLibDir = context.applicationInfo.nativeLibraryDir
+        val deno = File(nativeLibDir, "libdeno.so")
+        if (deno.exists()) return "deno" to deno
+
+        val quickjs =
+            File(nativeLibDir, "libquickjs.so").takeIf { it.exists() }
+                ?: File(nativeLibDir, "libqjs.so").takeIf { it.exists() }
+        if (quickjs != null) return "quickjs" to quickjs
+
+        return null
+    }
+
+    private fun YoutubeDLRequest.configureJsRuntime(): YoutubeDLRequest = apply {
+        if (buildCommand().contains("--js-runtimes")) return@apply
+        getBundledJsRuntime()?.let { (runtime, file) ->
+            addOption("--js-runtimes", "$runtime:${file.absolutePath}")
+        }
+    }
+
     private fun YoutubeDLRequest.enableAria2c(): YoutubeDLRequest =
         this.addOption("--downloader", "libaria2c.so")
 
@@ -443,6 +466,7 @@ object DownloadUtil {
         downloadPreferences: DownloadPreferences
     ): YoutubeDLRequest =
         this.apply {
+            configureJsRuntime()
             downloadPreferences.run {
                 addOption("--add-metadata")
                 addOption("--no-embed-info-json")
@@ -594,6 +618,7 @@ object DownloadUtil {
         playlistUrl: String,
     ): YoutubeDLRequest =
         this.apply {
+            configureJsRuntime()
             with(preferences) {
                 addOption("-x")
                 if (downloadSubtitle) {
@@ -918,6 +943,7 @@ object DownloadUtil {
         val request =
             with(preferences) {
                 YoutubeDLRequest(urlList).apply {
+                    configureJsRuntime()
                     commandDirectory.takeIf { it.isNotEmpty() }?.let { addOption("-P", it) }
                     addOption("--newline")
                     if (aria2c) {
@@ -959,6 +985,7 @@ object DownloadUtil {
             ToastUtil.makeToastSuspend(context.getString(R.string.start_execute))
             val request =
                 YoutubeDLRequest(urlList).apply {
+                    configureJsRuntime()
                     commandDirectory.takeIf { it.isNotEmpty() }?.let { addOption("-P", it) }
                     addOption("--newline")
                     if (aria2c) {

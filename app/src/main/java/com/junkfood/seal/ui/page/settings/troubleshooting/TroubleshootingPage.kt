@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Cookie
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Spellcheck
@@ -159,6 +160,13 @@ fun TroubleShootingPage(
                 if (showYtdlpDialog) {
                     YtdlpUpdateChannelDialog(onDismissRequest = { showYtdlpDialog = false })
                 }
+            }
+            item {
+                PreferenceItem(
+                    title = stringResource(R.string.js_runtime),
+                    description = App.getJsRuntimeInfo(),
+                    icon = Icons.Outlined.Code,
+                )
             }
 
             item { PreferenceSubtitle(text = stringResource(R.string.network)) }

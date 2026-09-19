@@ -17,3 +17,4 @@
 local.properties
 /keystore.properties
 .kotlin
+app/src/main/jniLibs/**/*.so

@@ -216,7 +216,23 @@ class App : Application() {
                 .append("Device information: Android $release (API ${Build.VERSION.SDK_INT})\n")
                 .append("Supported ABIs: ${Build.SUPPORTED_ABIS.contentToString()}\n")
                 .append("Yt-dlp version: ${YT_DLP_VERSION.getString()}\n")
+                .append("JavaScript runtime: ${getJsRuntimeInfo()}\n")
                 .toString()
+        }
+
+        fun getJsRuntimeInfo(): String {
+            val nativeLibDir = context.applicationInfo.nativeLibraryDir
+            val deno = java.io.File(nativeLibDir, "libdeno.so")
+            if (deno.exists()) {
+                return "Deno (libdeno.so, ${deno.length() / (1024 * 1024)} MB)"
+            }
+            val quickjs =
+                java.io.File(nativeLibDir, "libquickjs.so").takeIf { it.exists() }
+                    ?: java.io.File(nativeLibDir, "libqjs.so").takeIf { it.exists() }
+            if (quickjs != null) {
+                return "QuickJS (${quickjs.name}, ${quickjs.length() / 1024} KB)"
+            }
+            return "None detected"
         }
 
         fun isFDroidBuild(): Boolean = BuildConfig.FLAVOR == "fdroid"

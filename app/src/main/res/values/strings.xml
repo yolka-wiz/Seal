@@ -466,4 +466,6 @@
         <item quantity="one">%d audio</item>
         <item quantity="other">%d audios</item>
     </plurals>
+    <string name="js_runtime">JavaScript runtime</string>
+    <string name="js_runtime_desc">Runtime used by yt-dlp to solve JavaScript challenges</string>
 </resources>
