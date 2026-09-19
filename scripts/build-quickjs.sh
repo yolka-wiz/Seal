@@ -5,11 +5,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 JNILIBS_DIR="$ROOT_DIR/app/src/main/jniLibs"
 
-# If libdeno.so is already provided in arm64-v8a, keep it
-if [ -f "$JNILIBS_DIR/arm64-v8a/libdeno.so" ]; then
-    echo "Found pre-existing libdeno.so in $JNILIBS_DIR/arm64-v8a/"
-fi
-
 # Locate Android NDK
 NDK_PATH="${ANDROID_NDK_HOME:-${ANDROID_NDK_ROOT:-}}"
 if [ -z "$NDK_PATH" ] && [ -n "${ANDROID_HOME:-}" ] && [ -d "${ANDROID_HOME:-}/ndk" ]; then
@@ -23,7 +18,6 @@ fi
 
 echo "Using Android NDK at: $NDK_PATH"
 TOOLCHAIN_FILE="$NDK_PATH/build/cmake/android.toolchain.cmake"
-LLVM_BIN="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin"
 
 BUILD_DIR=$(mktemp -d)
 trap 'rm -rf "$BUILD_DIR"' EXIT
@@ -31,14 +25,9 @@ trap 'rm -rf "$BUILD_DIR"' EXIT
 echo "Cloning QuickJS-NG..."
 git clone --depth 1 https://github.com/quickjs-ng/quickjs.git "$BUILD_DIR/quickjs"
 
-declare -A ABI_CLANG=(
-    ["arm64-v8a"]="aarch64-linux-android24-clang"
-    ["armeabi-v7a"]="armv7a-linux-androideabi24-clang"
-    ["x86"]="i686-linux-android24-clang"
-    ["x86_64"]="x86_64-linux-android24-clang"
-)
+ABIS=("arm64-v8a" "armeabi-v7a" "x86" "x86_64")
 
-for ABI in "${!ABI_CLANG[@]}"; do
+for ABI in "${ABIS[@]}"; do
     TARGET_DIR="$JNILIBS_DIR/$ABI"
     mkdir -p "$TARGET_DIR"
 
@@ -48,7 +37,7 @@ for ABI in "${!ABI_CLANG[@]}"; do
         continue
     fi
 
-    echo "Building QuickJS static library for $ABI..."
+    echo "Building QuickJS for $ABI..."
     ABI_BUILD_DIR="$BUILD_DIR/build-$ABI"
     cmake -B "$ABI_BUILD_DIR" -S "$BUILD_DIR/quickjs" \
         -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" \
@@ -56,18 +45,9 @@ for ABI in "${!ABI_CLANG[@]}"; do
         -DANDROID_PLATFORM=24 \
         -DCMAKE_BUILD_TYPE=Release
 
-    cmake --build "$ABI_BUILD_DIR" -j"$(nproc 2>/dev/null || echo 2)"
+    cmake --build "$ABI_BUILD_DIR" --target qjs_exe -j"$(nproc 2>/dev/null || echo 2)"
 
-    CLANG_COMPILER="$LLVM_BIN/${ABI_CLANG[$ABI]}"
-    echo "Linking QuickJS CLI executable ($CLANG_COMPILER)..."
-    "$CLANG_COMPILER" -O2 -D_GNU_SOURCE \
-        -I"$BUILD_DIR/quickjs" \
-        "$BUILD_DIR/quickjs/qjs.c" \
-        "$BUILD_DIR/quickjs/quickjs-libc.c" \
-        "$ABI_BUILD_DIR/libqjs.a" \
-        -lm -ldl \
-        -o "$TARGET_DIR/libquickjs.so"
-
+    cp "$ABI_BUILD_DIR/qjs" "$TARGET_DIR/libquickjs.so"
     chmod +x "$TARGET_DIR/libquickjs.so"
     echo "Successfully built $TARGET_DIR/libquickjs.so ($(du -h "$TARGET_DIR/libquickjs.so" | cut -f1))"
 done
