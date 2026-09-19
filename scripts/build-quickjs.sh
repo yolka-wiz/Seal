@@ -23,6 +23,7 @@ fi
 
 echo "Using Android NDK at: $NDK_PATH"
 TOOLCHAIN_FILE="$NDK_PATH/build/cmake/android.toolchain.cmake"
+LLVM_BIN="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin"
 
 BUILD_DIR=$(mktemp -d)
 trap 'rm -rf "$BUILD_DIR"' EXIT
@@ -30,9 +31,14 @@ trap 'rm -rf "$BUILD_DIR"' EXIT
 echo "Cloning QuickJS-NG..."
 git clone --depth 1 https://github.com/quickjs-ng/quickjs.git "$BUILD_DIR/quickjs"
 
-ABIS=("arm64-v8a" "armeabi-v7a" "x86" "x86_64")
+declare -A ABI_CLANG=(
+    ["arm64-v8a"]="aarch64-linux-android24-clang"
+    ["armeabi-v7a"]="armv7a-linux-androideabi24-clang"
+    ["x86"]="i686-linux-android24-clang"
+    ["x86_64"]="x86_64-linux-android24-clang"
+)
 
-for ABI in "${ABIS[@]}"; do
+for ABI in "${!ABI_CLANG[@]}"; do
     TARGET_DIR="$JNILIBS_DIR/$ABI"
     mkdir -p "$TARGET_DIR"
 
@@ -42,19 +48,28 @@ for ABI in "${ABIS[@]}"; do
         continue
     fi
 
-    echo "Building QuickJS for $ABI..."
+    echo "Building QuickJS static library for $ABI..."
     ABI_BUILD_DIR="$BUILD_DIR/build-$ABI"
     cmake -B "$ABI_BUILD_DIR" -S "$BUILD_DIR/quickjs" \
         -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" \
         -DANDROID_ABI="$ABI" \
         -DANDROID_PLATFORM=24 \
-        -DBUILD_QJS=ON \
         -DCMAKE_BUILD_TYPE=Release
 
-    cmake --build "$ABI_BUILD_DIR" --target qjs -j"$(nproc 2>/dev/null || echo 2)"
-    cp "$ABI_BUILD_DIR/qjs" "$TARGET_DIR/libquickjs.so"
+    cmake --build "$ABI_BUILD_DIR" -j"$(nproc 2>/dev/null || echo 2)"
+
+    CLANG_COMPILER="$LLVM_BIN/${ABI_CLANG[$ABI]}"
+    echo "Linking QuickJS CLI executable ($CLANG_COMPILER)..."
+    "$CLANG_COMPILER" -O2 -D_GNU_SOURCE \
+        -I"$BUILD_DIR/quickjs" \
+        "$BUILD_DIR/quickjs/qjs.c" \
+        "$BUILD_DIR/quickjs/quickjs-libc.c" \
+        "$ABI_BUILD_DIR/libqjs.a" \
+        -lm -ldl \
+        -o "$TARGET_DIR/libquickjs.so"
+
     chmod +x "$TARGET_DIR/libquickjs.so"
-    echo "Built $TARGET_DIR/libquickjs.so ($(du -h "$TARGET_DIR/libquickjs.so" | cut -f1))"
+    echo "Successfully built $TARGET_DIR/libquickjs.so ($(du -h "$TARGET_DIR/libquickjs.so" | cut -f1))"
 done
 
 echo "JavaScript runtimes setup completed successfully."
