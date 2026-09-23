@@ -48,9 +48,13 @@ private const val MAX_CONCURRENCY = 3
 interface DownloaderV2 {
     fun getTaskStateMap(): SnapshotStateMap<Task, Task.State>
 
-    fun hasActiveTasks(): Boolean
+    fun hasActiveTasks(): Boolean = false
 
     fun cancel(task: Task): Boolean
+
+    fun cancel(taskId: String): Boolean {
+        return getTaskStateMap().keys.find { it.id == taskId }?.let { cancel(it) } ?: false
+    }
 
     fun restart(task: Task)
 

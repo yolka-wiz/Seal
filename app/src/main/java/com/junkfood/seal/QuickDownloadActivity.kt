@@ -33,6 +33,7 @@ import com.junkfood.seal.util.DownloadUtil
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.matchUrlFromSharedText
 import com.junkfood.seal.util.setLanguage
+import com.junkfood.seal.download.DownloaderV2
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.getViewModel
